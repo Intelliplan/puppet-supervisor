@@ -155,46 +155,18 @@ class supervisor(
     }
   }
 
-  if ! defined(Package[$supervisor::params::package]) {
-    package { $supervisor::params::package:
-      ensure => $package_ensure,
-    }
-  }
+  anchor { 'supervisor::start': }
 
-  file { $supervisor::params::conf_dir:
-    ensure  => $dir_ensure,
-    purge   => true,
-    recurse => $recurse_config_dir,
-    require => Package[$supervisor::params::package],
+  class { 'supervisor::package':
+    before  => Anchor['supervisor::end'],
+    require => Anchor['supervisor::start'], } ->
+  class { 'supervisor::config':
+    content => template('supervisor/supervisord.conf.erb')
+  } ~>
+  class { 'supervisor::supervisord':
+    before  => Anchor['supervisor::end'],
+    require => Anchor['supervisor::start'],
   }
-
-  file { [
-    '/var/log/supervisor',
-    '/var/run/supervisor'
-  ]:
-    ensure  => $dir_ensure,
-    purge   => true,
-    backup  => false,
-    require => Package[$supervisor::params::package],
-  }
-
-  file { $supervisor::params::conf_file:
-    ensure  => $file_ensure,
-    content => template('supervisor/supervisord.conf.erb'),
-    require => File[$supervisor::params::conf_dir],
-    notify  => Service[$supervisor::params::system_service],
-  }
-
-  file { '/etc/logrotate.d/supervisor':
-    ensure  => $file_ensure,
-    source  => 'puppet:///modules/supervisor/logrotate',
-    require => Package[$supervisor::params::package],
-  }
-
-  service { $supervisor::params::system_service:
-    ensure     => $service_ensure_real,
-    enable     => $service_enable,
-    hasrestart => true,
-    require    => File[$supervisor::params::conf_file],
-  }
+  
+  anchor { 'supervisor::end': }
 }
