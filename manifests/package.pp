@@ -12,7 +12,7 @@ class supervisor::package(
   wget::fetch { 'download_supervisor':
     source      => $download_url,
     destination => "/usr/local/src/supervisor-$version.tar.bz",
-    before      => Exec['untar_zookeeper'],
+    before      => Exec['untar_supervisor'],
     require     => Class['wget'],
     flags       => '--no-check-certificate',
   }
