@@ -20,10 +20,19 @@ class supervisor::config(
     backup  => false,
   }
 
+  file { '/etc/sysconfig/supervisord':
+    ensure  => present,
+    content => "OPTIONS=\"-c $supervisor::params::conf_file\"",
+    mode    => '0644',
+  }
+
   file { $supervisor::params::conf_file:
     ensure  => $file_ensure,
     content => $content,
-    require => File[$supervisor::params::conf_dir],
+    require => [
+      File[$supervisor::params::conf_dir],
+      File['/etc/sysconfig/supervisord']
+    ],
     notify  => Service[$supervisor::params::system_service],
   }
   
