@@ -1,10 +1,16 @@
+# puppet-supervisor
+
 Puppet module for configuring the 'supervisor' daemon control
-utility. Currently tested on Debian, Ubuntu, and Fedora.
+utility. Currently tested on CentOS.
 
-Install into `module_path>/supervisor`
+Requires supervisor to be packaged properly for CentOS, named
+'python-supervisor' at my [fpm recipes](https://github.com/haf/fpm-recipes).
 
-Example usage::
 
+
+### Example usage
+
+```puppet
   include supervisor
 
   supervisor::service {
@@ -17,3 +23,4 @@ Example usage::
       group       => 'scribe',
       require     => [ Package['scribe'], User['scribe'] ];
   }
+```
