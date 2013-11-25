@@ -13,7 +13,6 @@
 define supervisor::service (
   $command,
   $ensure                   = present,
-  $enable                   = true,
   $numprocs                 = 1,
   $numprocs_start           = 0,
   $priority                 = 999,
@@ -23,6 +22,8 @@ define supervisor::service (
   $exitcodes                = '0,2',
   $stopsignal               = 'TERM',
   $stopwait                 = 10,
+  $stopasgroup              = false,
+  $killasgroup              = false,
   $user                     = 'root',
   $group                    = 'root',
   $redirect_stderr          = false,
@@ -45,6 +46,7 @@ define supervisor::service (
       $dir_recurse = true
       $dir_force = true
       $service_ensure = 'stopped'
+      $config_ensure = 'absent'
     }
     present: {
       $autostart = true
@@ -52,12 +54,7 @@ define supervisor::service (
       $dir_recurse = false
       $dir_force = false
       $service_ensure = 'running'
-
-      if $enable == true {
-        $config_ensure = undef
-      } else {
-        $config_ensure = absent
-      }
+      $config_ensure = file
     }
     default: {
       fail("ensure must be 'present' or 'absent', not ${ensure}")
@@ -80,20 +77,24 @@ define supervisor::service (
     require => Class['supervisor'],
   }
 
-  file { "${supervisor::params::conf_dir}/${name}.ini":
+  $conf_file = "${supervisor::conf_dir}/${name}${supervisor::conf_ext}"
+
+  file { $conf_file:
     ensure  => $config_ensure,
     content => template('supervisor/service.ini.erb'),
-    require => File["/var/log/supervisor/${name}"],
-    notify  => Class['supervisor::update'],
   }
 
   service { "supervisor::${name}":
     ensure   => $service_ensure,
-    provider => base,
-    restart  => "/usr/bin/supervisorctl restart ${process_name}",
-    start    => "/usr/bin/supervisorctl start ${process_name}",
-    status   => "/usr/bin/supervisorctl status | awk '/^${name}[: ]/{print \$2}' | grep '^RUNNING$'",
-    stop     => "/usr/bin/supervisorctl stop ${process_name}",
-    require  => File["${supervisor::params::conf_dir}/${name}.ini"],
+    provider => supervisor,
+  }
+
+  if $ensure == 'present' {
+    File["/var/log/supervisor/${name}"] -> File[$conf_file] ~>
+    Class['supervisor::update'] -> Service["supervisor::${name}"]
+  } else { # $ensure == 'absent'
+    # First stop the service, delete the .ini, reload the config, delete the log dir
+    Service["supervisor::${name}"] -> File[$conf_file] ~>
+    Class['supervisor::update'] -> File["/var/log/supervisor/${name}"]
   }
 }

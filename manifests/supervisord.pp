@@ -1,13 +1,13 @@
 class supervisor::supervisord {
-  $service_ensure_real = $supervisor::service_ensure_real
-  $service_enable      = $supervisor::service_enable
+  $_ensure = $supervisor::service_ensure_real
+  $_enable = $supervisor::service_enable
 
   service { $supervisor::params::system_service:
-    ensure     => $service_ensure_real,
-    enable     => $service_enable,
+    ensure     => $_ensure,
+    enable     => $_enable,
     hasrestart => true,
     require    => [
-      File[$supervisor::params::conf_file],
+      File[$supervisor::conf_file],
       Class['supervisor::package']
     ],
   }

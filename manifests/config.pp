@@ -4,8 +4,9 @@ class supervisor::config(
   $dir_ensure         = $supervisor::dir_ensure
   $file_ensure        = $supervisor::file_ensure
   $recurse_config_dir = $supervisor::recurse_config_dir
+  $enable_logrotate   = $supervisor::enable_logrotate
 
-  file { $supervisor::params::conf_dir:
+  file { $supervisor::conf_dir:
     ensure  => $dir_ensure,
     purge   => true,
     recurse => $recurse_config_dir,
@@ -20,9 +21,10 @@ class supervisor::config(
     backup  => false,
   }
 
+  # http://supervisord.org/running.html
   file { '/etc/sysconfig/supervisord':
     ensure  => present,
-    content => "OPTIONS=\"-c $supervisor::params::conf_file\"",
+    content => "OPTIONS=\"--configuration=$supervisor::conf_file\"",
     mode    => '0644',
   }
 
@@ -30,20 +32,22 @@ class supervisor::config(
     ensure  => $file_ensure,
     content => $content,
     require => [
-      File[$supervisor::params::conf_dir],
+      File[$supervisor::conf_dir],
       File['/etc/sysconfig/supervisord']
     ],
     notify  => Service[$supervisor::params::system_service],
   }
-  
+
   file { '/etc/init.d/supervisord':
     ensure  => present,
     mode    => '0755',
     content => template('supervisor/supervisord.erb')
   }
 
-  file { '/etc/logrotate.d/supervisor':
-    ensure  => $file_ensure,
-    source  => 'puppet:///modules/supervisor/logrotate',
+  if $enable_logrotate {
+    file { '/etc/logrotate.d/supervisor':
+      ensure  => $file_ensure,
+      source  => 'puppet:///modules/supervisor/logrotate',
+    }
   }
 }
