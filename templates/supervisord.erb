@@ -2,7 +2,8 @@
 #
 # supervisord   This scripts turns supervisord on
 #
-# Author:       Mike McGrath <mmcgrath@redhat.com> (based off yumupdatesd)
+# Author:       Henrik Feldt <henrik@haf.se> Improved restart/pid file handling
+#               Mike McGrath <mmcgrath@redhat.com> (based off yumupdatesd)
 #               Jason Koppe <jkoppe@indeed.com> adjusted to read sysconfig,
 #                   use supervisord tools to start/stop, conditionally wait
 #                   for child processes to shutdown, and startup later
@@ -23,18 +24,20 @@
 [ -e /etc/sysconfig/supervisord ] && . /etc/sysconfig/supervisord
 
 RETVAL=0
-PIDFILE=/var/run/supervisor.pid
+PIDFILE=/var/run/supervisord.pid
 
 start() {
-  echo "Starting supervisord: "
+  echo -n "Starting supervisord: "
   if [ -e $PIDFILE ]; then 
     echo "ALREADY STARTED at $PIDFILE"
     return 1
   fi
 
   # start supervisord with options from sysconfig (stuff like -c)
-  /usr/bin/supervisord $OPTIONS
+  /usr/bin/supervisord $OPTIONS --pidfile=$PIDFILE
   
+  echo 'Started'
+
   # show initial startup status
   /usr/bin/supervisorctl $OPTIONS status
   
@@ -44,65 +47,74 @@ start() {
   fi
 }
 
+status() {
+  if [ -e $PIDFILE ]; then
+    echo "supervisord (pid $(cat $PIDFILE)) is running"
+    /usr/bin/supervisorctl status
+  else
+    echo "supervisord is not running; no pid-file at $PIDFILE"
+    return 1
+  fi
+}
+
 stop() {
   echo -n "Stopping supervisord: "
   /usr/bin/supervisorctl $OPTIONS shutdown
   if [ -n "$WAIT_FOR_SUBPROCESSES" ]; then 
-        echo "Waiting roughly 60 seconds for $PIDFILE to be removed after child processes exit"
-        for sleep in  2 2 2 2 4 4 4 4 8 8 8 8 last; do
-            if [ ! -e $PIDFILE ] ; then
-                echo "Supervisord exited as expected in under $total_sleep seconds"
-                break
-            else
-                if [[ $sleep -eq "last" ]] ; then
-                    echo "Supervisord still working on shutting down. We've waited roughly 60 seconds, we'll let it do its thing from here"
-                    return 1
-                else
-                    sleep $sleep
-                    total_sleep=$(( $total_sleep + $sleep ))
-                fi
+    echo "Waiting roughly 60 seconds for $PIDFILE to be removed after child processes exit"
+    for sleep in  2 2 2 2 4 4 4 4 8 8 8 8 last; do
+      if [ ! -e $PIDFILE ] ; then
+        echo "Supervisord exited as expected in under $total_sleep seconds"
+        break
+      else
+        if [[ $sleep -eq "last" ]] ; then
+          echo "Supervisord still working on shutting down. We've waited roughly 60 seconds, we'll let it do its thing from here"
+          return 1
+        else
+          sleep $sleep
+          total_sleep=$(( $total_sleep + $sleep ))
+        fi
+      fi
+    done
+  fi
 
-            fi
-        done
-    fi
-
-    # always remove the subsys.  we might have waited a while, but just remove it at this point.
-    rm -f /var/lock/subsys/supervisord
+  # always remove the subsys. we might have waited a while, but just remove it at this point.
+  rm -f /var/lock/subsys/supervisord
 }
 
 restart() {
-        stop
-        start
+  stop
+  start
 }
 
 case "$1" in
-    start)
-        start
-        RETVAL=$?
-        ;;
-    stop)
-        stop
-        RETVAL=$?
-        ;;
-    restart|force-reload)
-        restart
-        RETVAL=$?
-        ;;
-    reload)
-        /usr/bin/supervisorctl $OPTIONS reload
-        RETVAL=$?
-        ;;
-    condrestart)
-        [ -f /var/lock/subsys/supervisord ] && restart
-        RETVAL=$?
-        ;;
-    status)
-        /usr/bin/supervisorctl status
-        RETVAL=$?
-        ;;
-    *)
-        echo $"Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart}"
-        exit 1
+  start)
+    start
+    RETVAL=$?
+    ;;
+  stop)
+    stop
+    RETVAL=$?
+    ;;
+  restart|force-reload)
+    restart
+    RETVAL=$?
+    ;;
+  reload)
+    /usr/bin/supervisorctl $OPTIONS reload
+    RETVAL=$?
+    ;;
+  condrestart)
+    [ -f /var/lock/subsys/supervisord ] && restart
+    RETVAL=$?
+    ;;
+  status)
+    status
+    RETVAL=$?
+    ;;
+  *)
+  echo $"Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart}"
+  exit 1
 esac
 
 exit $RETVAL

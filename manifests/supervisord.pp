@@ -6,9 +6,5 @@ class supervisor::supervisord {
     ensure     => $_ensure,
     enable     => $_enable,
     hasrestart => true,
-    require    => [
-      File[$supervisor::conf_file],
-      Class['supervisor::package']
-    ],
   }
 }
