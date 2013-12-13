@@ -28,26 +28,18 @@ class supervisor::config(
     mode    => '0644',
   }
 
-  file { $supervisor::params::conf_file:
+  file { $supervisor::conf_file:
     ensure  => $file_ensure,
     content => $content,
     require => [
       File[$supervisor::conf_dir],
       File['/etc/sysconfig/supervisord']
     ],
-    notify  => Service[$supervisor::params::system_service],
   }
 
   file { '/etc/init.d/supervisord':
     ensure  => present,
     mode    => '0755',
     content => template('supervisor/supervisord.erb')
-  }
-
-  if $enable_logrotate {
-    file { '/etc/logrotate.d/supervisor':
-      ensure  => $file_ensure,
-      source  => 'puppet:///modules/supervisor/logrotate',
-    }
   }
 }

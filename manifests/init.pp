@@ -22,15 +22,30 @@ class supervisor(
   $supervisor_environment   = undef,
   $identifier               = undef,
   $recurse_config_dir       = false,
-  $conf_file                = $supervisor::params::conf_file,
-  $conf_dir                 = $supervisor::params::conf_dir,
   $conf_ext                 = '.ini',
   $include_files            = []
-) inherits supervisor::params {
-
-  include supervisor::update
+) {
 
   anchor { 'supervisor::start': }
+
+  # consider moving to RIP's data module
+
+  $conf_file = $::osfamily ? {
+    'Debian' => '/etc/supervisor/supervisord.conf',
+    default  => '/etc/supervisord.conf' # RedHat
+  }
+
+  $conf_dir = $::osfamily ? {
+    'Debian' => '/etc/supervisor',
+    default  => '/etc/supervisord.d'
+  }
+
+  $system_service = $::osfamily ? {
+    'Debian' => 'supervisor',
+    default  => 'supervisord' # RedHat
+  }
+
+  # handling status of package/service
 
   case $ensure {
     present: {
@@ -71,7 +86,7 @@ class supervisor(
 
   class { 'supervisor::config':
     content => template('supervisor/supervisord.conf.erb'),
-    notify  => Class['supervisor::supervisord'],
+    notify  => Service[$system_service],
     require => [
       Anchor['supervisor::start'],
       Package[$package]
@@ -79,12 +94,37 @@ class supervisor(
     before  => Anchor['supervisor::end'],
   }
 
-  class { 'supervisor::supervisord':
+  Supervisor::Service <| |> -> Service[$system_service]
+
+  service { $system_service:
+    ensure     => $service_ensure_real,
+    enable     => $service_enable,
+    hasrestart => true,
     require    => [
+      Anchor['supervisor::start'],
       File[$conf_file],
       Class['supervisor::config']
     ],
     before     => Anchor['supervisor::end'],
+  }
+
+  # this update call is made from all supervisor::service
+  # defines, so there's no need to order/require anything
+  # from it inside this class.
+
+  exec { 'supervisor::update':
+    command     => '/usr/bin/supervisorctl update',
+    logoutput   => on_failure,
+    refreshonly => true,
+    require     => Anchor['supervisor::start'],
+    before     => Anchor['supervisor::end'],
+  }
+
+  if $enable_logrotate {
+    file { '/etc/logrotate.d/supervisor':
+      ensure  => $file_ensure,
+      source  => 'puppet:///modules/supervisor/logrotate',
+    }
   }
 
   anchor { 'supervisor::end': }

@@ -37,8 +37,6 @@ define supervisor::service (
   $environment              = undef,
   $umask                    = undef
 ) {
-  include supervisor
-
   case $ensure {
     absent: {
       $autostart = false
@@ -67,21 +65,26 @@ define supervisor::service (
     $process_name = $name
   }
 
-  file { "/var/log/supervisor/${name}":
+  # logs:
+
+  file { "${supervisor::childlogdir}/${name}":
     ensure  => $dir_ensure,
     owner   => $user,
     group   => $group,
     mode    => '0750',
     recurse => $dir_recurse,
     force   => $dir_force,
-    require => Class['supervisor'],
+    require => File[$supervisor::childlogdir],
   }
+
+  # svc config / ini-file:
 
   $conf_file = "${supervisor::conf_dir}/${name}${supervisor::conf_ext}"
 
   file { $conf_file:
     ensure  => $config_ensure,
     content => template('supervisor/service.ini.erb'),
+    require => File[$supervisor::conf_dir],
   }
 
   service { "supervisor::${name}":
@@ -89,12 +92,15 @@ define supervisor::service (
     provider => supervisor,
   }
 
+  # update supervisord to changes with the configuration file
+
+  File[$conf_file] ~> Exec['supervisor::update']
+
   if $ensure == 'present' {
-    File["/var/log/supervisor/${name}"] -> File[$conf_file] ~>
-    Class['supervisor::update'] -> Service["supervisor::${name}"]
-  } else { # $ensure == 'absent'
+    Exec['supervisor::update'] ~> Service["supervisor::${name}"]
+  } else {
     # First stop the service, delete the .ini, reload the config, delete the log dir
-    Service["supervisor::${name}"] -> File[$conf_file] ~>
-    Class['supervisor::update'] -> File["/var/log/supervisor/${name}"]
+    Service["supervisor::${name}"] -> File[$conf_file]
+    Exec['supervisor::update'] -> File["${supervisor::childlogdir}/${name}"]
   }
 }
