@@ -40,7 +40,7 @@ start() {
 
   # show initial startup status
   /usr/bin/supervisorctl $OPTIONS status
-  
+
   # only create the subsyslock if we created the PIDFILE
   if [ -e $PIDFILE ]; then
     touch /var/lock/subsys/supervisord
@@ -58,28 +58,33 @@ status() {
 }
 
 stop() {
-  echo -n "Stopping supervisord: "
-  /usr/bin/supervisorctl $OPTIONS shutdown
-  if [ -n "$WAIT_FOR_SUBPROCESSES" ]; then 
-    echo "Waiting roughly 60 seconds for $PIDFILE to be removed after child processes exit"
-    for sleep in  2 2 2 2 4 4 4 4 8 8 8 8 last; do
-      if [ ! -e $PIDFILE ] ; then
-        echo "Supervisord exited as expected in under $total_sleep seconds"
-        break
-      else
-        if [[ $sleep -eq "last" ]] ; then
-          echo "Supervisord still working on shutting down. We've waited roughly 60 seconds, we'll let it do its thing from here"
-          return 1
+  if [ ! -e $PIDFILE ]; then
+    # always remove the subsys.
+    rm -f /var/lock/subsys/supervisord
+    return 0
+  else
+    echo -n "Stopping supervisord: "
+    /usr/bin/supervisorctl $OPTIONS shutdown
+    if [ -n "$WAIT_FOR_SUBPROCESSES" ]; then
+      echo "Waiting roughly 60 seconds for $PIDFILE to be removed after child processes exit"
+      for sleep in  2 2 2 2 4 4 4 4 8 8 8 8 last; do
+        if [ ! -e $PIDFILE ] ; then
+          echo "Supervisord exited as expected in under $total_sleep seconds"
+          break
         else
-          sleep $sleep
-          total_sleep=$(( $total_sleep + $sleep ))
+          if [[ $sleep -eq "last" ]] ; then
+            echo "Supervisord still working on shutting down. We've waited roughly 60 seconds, we'll let it do its thing from here"
+            return 1
+          else
+            sleep $sleep
+            total_sleep=$(( $total_sleep + $sleep ))
+          fi
         fi
-      fi
-    done
+      done
+    fi
+    # always remove the subsys. we might have waited a while, but just remove it at this point.
+    rm -f /var/lock/subsys/supervisord
   fi
-
-  # always remove the subsys. we might have waited a while, but just remove it at this point.
-  rm -f /var/lock/subsys/supervisord
 }
 
 restart() {
