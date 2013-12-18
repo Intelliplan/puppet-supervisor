@@ -94,7 +94,7 @@ class supervisor(
     before  => Anchor['supervisor::end'],
   }
 
-  Supervisor::Service <| |> -> Service[$system_service]
+  Service[$system_service] -> Supervisor::Service <| |>
 
   service { $system_service:
     ensure     => $service_ensure_real,
@@ -117,7 +117,7 @@ class supervisor(
     logoutput   => on_failure,
     refreshonly => true,
     require     => Anchor['supervisor::start'],
-    before     => Anchor['supervisor::end'],
+    before      => Anchor['supervisor::end'],
   }
 
   if $enable_logrotate {
