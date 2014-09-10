@@ -1,5 +1,6 @@
 [unix_http_server]
 file=/var/run/supervisor.sock   ; (the path to the socket file)
+chmod=0770                      ; socket file mode (default 0700)
 
 <% if @enable_inet_server -%>
 [inet_http_server]
