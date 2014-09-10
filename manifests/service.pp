@@ -103,10 +103,10 @@ define supervisor::service (
   }
 
   if $ensure == 'present' {
-    Exec['supervisor::update'] ~> Service["supervisor::${name}"]
+    Exec["exec-update-${conf_file}"] ~> Service["supervisor::${name}"]
   } else {
     # First stop the service, delete the .ini, reload the config, delete the log dir
     Service["supervisor::${name}"] -> File[$conf_file]
-    Exec['supervisor::update'] -> File["${supervisor::childlogdir}/${name}"]
+    Exec["exec-update-${conf_file}"] -> File["${supervisor::childlogdir}/${name}"]
   }
 }
