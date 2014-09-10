@@ -25,9 +25,6 @@ class supervisor(
   $conf_ext                 = '.ini',
   $include_files            = []
 ) {
-
-  anchor { 'supervisor::start': }
-
   # consider moving to RIP's data module
 
   $conf_file = $::osfamily ? {
@@ -80,18 +77,12 @@ class supervisor(
 
   package { $package:
     ensure  => $package_ensure,
-    require => Anchor['supervisor::start'],
-    before  => Anchor['supervisor::end'],
   }
 
   class { 'supervisor::config':
     content => template('supervisor/supervisord.conf.erb'),
     notify  => Service[$system_service],
-    require => [
-      Anchor['supervisor::start'],
-      Package[$package]
-    ],
-    before  => Anchor['supervisor::end'],
+    require => Package[$package],
   }
 
   Service[$system_service] -> Supervisor::Service <| |>
@@ -101,11 +92,9 @@ class supervisor(
     enable     => $service_enable,
     hasrestart => true,
     require    => [
-      Anchor['supervisor::start'],
       File[$conf_file],
       Class['supervisor::config']
     ],
-    before     => Anchor['supervisor::end'],
   }
 
   # this update call is made from all supervisor::service
@@ -116,8 +105,6 @@ class supervisor(
     command     => '/usr/bin/supervisorctl update',
     logoutput   => on_failure,
     refreshonly => true,
-    require     => Anchor['supervisor::start'],
-    before      => Anchor['supervisor::end'],
   }
 
   if $enable_logrotate {
@@ -126,6 +113,4 @@ class supervisor(
       source  => 'puppet:///modules/supervisor/logrotate',
     }
   }
-
-  anchor { 'supervisor::end': }
 }
