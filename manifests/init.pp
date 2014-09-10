@@ -85,7 +85,7 @@ class supervisor(
     require => Package[$package],
   }
 
-  Service[$system_service] -> Supervisor::Service <| |>
+  contain supervisor::config
 
   service { $system_service:
     ensure     => $service_ensure_real,
@@ -95,16 +95,6 @@ class supervisor(
       File[$conf_file],
       Class['supervisor::config']
     ],
-  }
-
-  # this update call is made from all supervisor::service
-  # defines, so there's no need to order/require anything
-  # from it inside this class.
-
-  exec { 'supervisor::update':
-    command     => '/usr/bin/supervisorctl update',
-    logoutput   => on_failure,
-    refreshonly => true,
   }
 
   if $enable_logrotate {

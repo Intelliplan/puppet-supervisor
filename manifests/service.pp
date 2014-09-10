@@ -94,7 +94,13 @@ define supervisor::service (
 
   # update supervisord to changes with the configuration file
 
-  File[$conf_file] ~> Exec['supervisor::update']
+  File[$conf_file] ~>
+
+  exec { "exec-update-${conf_file}":
+    command     => '/usr/bin/supervisorctl update',
+    logoutput   => on_failure,
+    refreshonly => true,
+  }
 
   if $ensure == 'present' {
     Exec['supervisor::update'] ~> Service["supervisor::${name}"]
